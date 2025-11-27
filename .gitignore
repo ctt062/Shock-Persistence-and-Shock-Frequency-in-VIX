@@ -25,5 +25,18 @@ venv/
 *.log
 reports/
 
+# LaTeX build artifacts
+*.aux
+*.nav
+*.out
+*.snm
+*.toc
+*.vrb
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+
 # MacOS
 .DS_Store

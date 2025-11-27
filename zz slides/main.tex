@@ -1,0 +1,394 @@
+% !TEX program = pdflatex
+\documentclass[aspectratio=169,10pt]{beamer}
+
+% ============================================================
+%  Theme & Packages
+% ============================================================
+\usetheme{Madrid}
+\usecolortheme{default}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{tikz}
+
+% Path to figures folder (one level up)
+\graphicspath{{../figures/}}
+
+% Custom footer: show only institute (not author)
+\setbeamertemplate{footline}{
+  \leavevmode%
+  \hbox{%
+  \begin{beamercolorbox}[wd=.333333\paperwidth,ht=2.25ex,dp=1ex,center]{author in head/foot}%
+    \usebeamerfont{author in head/foot}\insertshortinstitute
+  \end{beamercolorbox}%
+  \begin{beamercolorbox}[wd=.333333\paperwidth,ht=2.25ex,dp=1ex,center]{title in head/foot}%
+    \usebeamerfont{title in head/foot}\insertshorttitle
+  \end{beamercolorbox}%
+  \begin{beamercolorbox}[wd=.333333\paperwidth,ht=2.25ex,dp=1ex,right]{date in head/foot}%
+    \usebeamerfont{date in head/foot}\insertshortdate{}\hspace*{2em}
+    \insertframenumber{} / \inserttotalframenumber\hspace*{2ex}
+  \end{beamercolorbox}}%
+  \vskip0pt%
+}
+
+% Smaller author font on title page
+\setbeamerfont{author}{size=\small}
+
+% ============================================================
+%  Title
+% ============================================================
+\title[VIX Shock Persistence \& Frequency]{Shock Persistence and Shock Frequency in VIX}
+\subtitle{A Quantitative Analysis of Volatility Dynamics}
+\author{CHONG Tin Tak (20920359) \newline CHOI Man Hou (20894196) \newline Vittorio Prana CHANDREAN (20896895)}
+\institute{HKUST - IEDA4000E}
+\date{\today}
+
+% ============================================================
+\begin{document}
+
+% ----------------------------------------------------------
+\begin{frame}
+\titlepage
+\end{frame}
+
+% ----------------------------------------------------------
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+
+% ============================================================
+\section{Introduction}
+% ============================================================
+
+\begin{frame}{What is VIX?}
+\begin{itemize}
+    \item \textbf{VIX} = CBOE Volatility Index, derived from S\&P~500 option prices.
+    \item Often called the ``fear gauge'' --- rises when markets expect turbulence.
+    \item Understanding VIX dynamics is crucial for:
+    \begin{itemize}
+        \item Risk management and hedging
+        \item Derivatives pricing
+        \item Portfolio allocation
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Research Questions}
+\begin{enumerate}
+    \item \textbf{How persistent is volatility?}\\
+          How long does a VIX shock take to decay?
+    \item \textbf{How frequently do large spikes occur?}\\
+          Can we model extreme events as a point process?
+    \item \textbf{Can we forecast VIX volatility?}\\
+          Do GARCH-type models beat simple baselines out-of-sample?
+\end{enumerate}
+\end{frame}
+
+% ============================================================
+\section{Data}
+% ============================================================
+
+\begin{frame}{Data Overview}
+\begin{itemize}
+    \item \textbf{Source:} Yahoo Finance (ticker \texttt{\^{}VIX})
+    \item \textbf{Period:} January 2010 -- November 2025
+    \item \textbf{Observations:} 4,145 business days
+    \item \textbf{Pre-processing:}
+    \begin{itemize}
+        \item Forward-fill missing dates
+        \item 0.1\% winsorization to limit outlier influence
+        \item Compute $\log(\text{VIX})$ and daily log-changes $\Delta\log(\text{VIX})$
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{VIX Time Series}
+\begin{center}
+    \includegraphics[width=0.85\textwidth]{vix_series.png}
+\end{center}
+\begin{itemize}
+    \item Red markers indicate identified shock days (top 5\% of $\Delta\log$ VIX).
+\end{itemize}
+\end{frame}
+
+% ============================================================
+\section{Methodology}
+% ============================================================
+
+\begin{frame}{Volatility Modeling: GARCH vs.\ EGARCH}
+\textbf{GARCH(1,1):}
+\[
+\sigma_t^2 = \omega + \alpha\,\varepsilon_{t-1}^2 + \beta\,\sigma_{t-1}^2
+\]
+\begin{itemize}
+    \item Symmetric: positive and negative shocks have equal impact.
+    \item Persistence $= \alpha + \beta$.
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{EGARCH(1,1):}
+\[
+\ln\sigma_t^2 = \omega + \beta\ln\sigma_{t-1}^2 + \alpha\bigl(|z_{t-1}| - \mathbb{E}|z|\bigr) + \gamma\, z_{t-1}
+\]
+\begin{itemize}
+    \item Asymmetric via $\gamma$ (leverage effect).
+    \item Models log-variance $\Rightarrow$ no positivity constraint.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Shock Identification \& Arrival Process}
+\begin{enumerate}
+    \item Define a \textbf{shock} as $\Delta\log(\text{VIX}) \ge$ 95th percentile.
+    \item Model inter-arrival times with:
+    \begin{itemize}
+        \item \textbf{HPP} (Homogeneous Poisson Process): constant rate $\lambda$.
+        \item \textbf{NHPP} (Non-Homogeneous Poisson): time-varying $\lambda_t$ via Poisson GLM with lagged covariates.
+    \end{itemize}
+    \item Covariates are \emph{lagged} to avoid look-ahead bias (e.g., average $\log$ VIX from month $t{-}1$ predicts shocks in month $t$).
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Forecast Evaluation Framework}
+\begin{itemize}
+    \item \textbf{Out-of-Sample Design:}
+    \begin{itemize}
+        \item Train on first 75\% of data.
+        \item Monthly rolling re-estimation of GARCH.
+        \item Forecast 1-step-ahead variance into the remaining 25\%.
+    \end{itemize}
+    \item \textbf{Baselines:}
+    \begin{itemize}
+        \item EWMA ($\lambda = 0.94$)
+        \item 63-day rolling variance
+    \end{itemize}
+    \item \textbf{Metrics:}
+    \begin{itemize}
+        \item Log-score (predictive density evaluation)
+        \item 95\% coverage rate
+        \item PIT histogram (calibration diagnostic)
+        \item Diebold--Mariano test (statistical significance)
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+% ============================================================
+\section{Results}
+% ============================================================
+
+\begin{frame}{Volatility Model Comparison}
+\begin{table}[ht]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Model & Distribution & AIC & Persistence & Half-life (days) \\
+\midrule
+GARCH(1,1) & GED & 27,507 & 0.852 & 4.3 \\
+EGARCH(1,1) & GED & \textbf{27,372} & 0.934 & 10.8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{itemize}
+    \item EGARCH achieves lower AIC $\Rightarrow$ better fit.
+    \item Higher persistence in EGARCH $\Rightarrow$ shocks decay more slowly ($\approx$11 days half-life).
+    \item GED distribution selected automatically via PIT uniformity diagnostics.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{News Impact Curve (Asymmetry)}
+\begin{center}
+    \includegraphics[width=0.7\textwidth]{news_impact.png}
+\end{center}
+\begin{itemize}
+    \item Positive shocks (VIX spikes) increase future variance more than negative shocks of equal magnitude decrease it.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Q--Q Plot of Standardized Residuals}
+\begin{center}
+    \includegraphics[width=0.55\textwidth]{qq.png}
+\end{center}
+\begin{itemize}
+    \item Points hug the 45° line in the tails $\Rightarrow$ GED captures fat tails well.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{ACF Comparison: Before \& After Filtering}
+\begin{center}
+    \includegraphics[width=0.75\textwidth]{acf.png}
+\end{center}
+\begin{itemize}
+    \item Top: ACF of squared returns shows strong serial correlation (volatility clustering).
+    \item Bottom: ACF of squared standardized residuals $\approx$ white noise $\Rightarrow$ GARCH successfully filters clustering.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Shock Statistics}
+\begin{itemize}
+    \item \textbf{Threshold:} 95th percentile $= 0.1267$
+    \item \textbf{Total shocks:} 208 events over 15 years
+    \item \textbf{HPP rate:} $\approx 9$ shocks/year (95\% CI: 7.8--10.4)
+    \item \textbf{NHPP:} Lagged $\log$ VIX coefficient $= -0.16$, indicating lower VIX levels predict fewer shocks next month.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Monthly Shock Counts}
+\begin{center}
+    \includegraphics[width=0.85\textwidth]{shock_counts.png}
+\end{center}
+\begin{itemize}
+    \item Notable clustering: 2011--12 (Euro crisis), 2018 (Volmageddon), 2020 (COVID), 2022 (rate hikes).
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Inter-Arrival Time Distribution}
+\begin{center}
+    \includegraphics[width=0.7\textwidth]{interarrival.png}
+\end{center}
+\begin{itemize}
+    \item Histogram vs.\ exponential PDF: reasonable fit validates Poisson assumption for shock arrivals.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Forecast Evaluation: Log-Scores}
+\begin{table}[ht]
+\centering
+\begin{tabular}{lc}
+\toprule
+Model & Log-Score (higher = better) \\
+\midrule
+GARCH & 1.274 \\
+EWMA & \textbf{1.375} \\
+Rolling Var & 1.274 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{itemize}
+    \item EWMA slightly outperforms GARCH out-of-sample.
+    \item Diebold--Mariano $p \approx 0$ $\Rightarrow$ difference is statistically significant.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Cumulative Log-Score Difference}
+\begin{center}
+    \includegraphics[width=0.8\textwidth]{cum_loss_diff.png}
+\end{center}
+\begin{itemize}
+    \item Downward trend: EWMA consistently accumulates better scores.
+    \item GARCH rarely catches up, even briefly.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{PIT Histogram (Calibration)}
+\begin{center}
+    \includegraphics[width=0.55\textwidth]{pit.png}
+\end{center}
+\begin{itemize}
+    \item Near-uniform distribution indicates well-calibrated density forecasts.
+    \item Mean $\approx 0.51$, std $\approx 0.26$ (ideal: 0.5, 0.29).
+    \item 95\% coverage: 95.0\% (close to nominal).
+\end{itemize}
+\end{frame}
+
+% ============================================================
+\section{Discussion}
+% ============================================================
+
+\begin{frame}{Key Findings}
+\begin{enumerate}
+    \item \textbf{Persistence:} VIX volatility shocks have a half-life of 4--11 days depending on model; EGARCH captures longer memory.
+    \item \textbf{Asymmetry:} Positive shocks increase variance more than negative shocks reduce it (leverage effect confirmed).
+    \item \textbf{Shock Arrivals:} $\sim$9 large spikes per year; inter-arrival times follow exponential distribution, supporting Poisson modeling.
+    \item \textbf{Forecasting:} Simple EWMA beats rolling GARCH on log-score, though calibration metrics are acceptable for both.
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Limitations}
+\begin{itemize}
+    \item GARCH re-estimation is computationally expensive; fixed-parameter rolling used here.
+    \item EWMA's superiority may reflect VIX's strong mean-reversion making elaborate models unnecessary.
+    \item NHPP covariates limited to lagged VIX; macro/sentiment indicators could improve intensity modeling.
+    \item Student-t/GED chosen automatically; skewed distributions not tested.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Future Work}
+\begin{itemize}
+    \item Incorporate EGARCH into the OOS forecasting loop.
+    \item Test realized volatility or high-frequency data for improved variance proxies.
+    \item Extend NHPP with external regressors (VIX term structure, credit spreads).
+    \item Deploy model as a real-time monitoring dashboard.
+\end{itemize}
+\end{frame}
+
+% ============================================================
+\section{Conclusion}
+% ============================================================
+
+\begin{frame}{Conclusion}
+\begin{itemize}
+    \item VIX exhibits \textbf{persistent, asymmetric volatility clustering} well captured by EGARCH.
+    \item Large spikes arrive at $\sim$9/year and cluster around macro stress episodes.
+    \item Out-of-sample, \textbf{EWMA remains a tough benchmark} to beat for density forecasting.
+    \item The reproducible pipeline (\texttt{runall.py}) and diagnostic figures enable transparent, auditable research.
+\end{itemize}
+
+\vspace{1em}
+\centering
+\Large \textbf{Thank you!}\\[0.5em]
+\normalsize Questions?
+\end{frame}
+
+% ============================================================
+\section*{Appendix}
+% ============================================================
+
+\begin{frame}[fragile]{Appendix: Project Structure}
+\small
+\begin{verbatim}
+Shock-Persistence-and-Shock-Frequency-in-VIX/
++-- runall.py
++-- src/
+|   +-- config.py
+|   +-- data_pipeline.py
+|   +-- volatility_models.py
+|   +-- shock_modeling.py
+|   +-- forecast_evaluation.py
+|   +-- visualization.py
++-- figures/
++-- notebooks/
++-- SUMMARY.md
++-- requirements.txt
+\end{verbatim}
+\end{frame}
+
+\begin{frame}{Appendix: Key Equations}
+\textbf{Log-Score:}
+\[
+S_t = \log f(r_t \mid \mu_t, \sigma_t^2)
+\]
+
+\textbf{PIT:}
+\[
+u_t = F(r_t \mid \mu_t, \sigma_t^2) \quad \text{should be } \mathrm{Uniform}(0,1)
+\]
+
+\textbf{Diebold--Mariano Statistic:}
+\[
+\text{DM} = \frac{\bar{d}}{\sqrt{\widehat{\mathrm{Var}}(\bar{d})}} \xrightarrow{d} N(0,1)
+\]
+where $d_t = L_t^{(A)} - L_t^{(B)}$ is the loss differential.
+\end{frame}
+
+\begin{frame}{Appendix: References}
+\small
+\begin{itemize}
+    \item Bollerslev, T. (1986). Generalized autoregressive conditional heteroskedasticity. \textit{Journal of Econometrics}.
+    \item Nelson, D. B. (1991). Conditional heteroskedasticity in asset returns: A new approach. \textit{Econometrica}.
+    \item Diebold, F. X., \& Mariano, R. S. (1995). Comparing predictive accuracy. \textit{Journal of Business \& Economic Statistics}.
+    \item Whaley, R. E. (2000). The investor fear gauge. \textit{Journal of Portfolio Management}.
+\end{itemize}
+\end{frame}
+
+% ============================================================
+\end{document}
